@@ -25,3 +25,16 @@
 - 公開フォームのため上限が悪用で消費される可能性はある。本格運用で必要になったら、別途用意済みのTurnstile付き送信サーバーへ移行する。
 
 Google公式：https://developers.google.com/apps-script/reference/mail/mail-app
+
+## 一般ユーザーのGoogle認証を不要にする設定
+`appsscript.json` をGoogle側にも保存済み。
+- `webapp.executeAs`: `USER_DEPLOYING`（所有者として実行）
+- `webapp.access`: `ANYONE_ANONYMOUS`（未ログインも利用可）
+- OAuthスコープは `script.send_mail` のみ。
+- サイトにOAuthライブラリ、認証リンク、アクセストークンは置かない。
+- 公開URLは `/exec` を使う。編集者向け `/dev` やGoogle認証URLはフォームの送信先にしない。
+
+所有者の初回送信認証は別途必要で、一般ユーザーの認証を不要にしても省略できない。
+認証完了後は、Googleにログインしていないブラウザーでフォームを送信し、OAuthページへ遷移しないことと実際の受信を確認する。現時点でその実配信テストは未実施。
+
+公式設定値：https://developers.google.com/apps-script/manifest/web-app-api-executable
