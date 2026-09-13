@@ -1,3 +1,4 @@
+import {mailConfig} from './mail-config.js';
 import {generateFortune,localDate} from './fortune.js';
 const $ = id => document.getElementById(id);
 const today = new Date();
@@ -13,6 +14,7 @@ function updateDays(){
 }
 $('year').addEventListener('change',updateDays);$('month').addEventListener('change',updateDays);updateDays();
 $('copyright-year').textContent=today.getFullYear();
+let readingInput=null;
 let current={categories:[{label:'総合運',score:88,text:'ひらめきを大切にして、小さな一歩を踏み出してみましょう。'},{label:'恋愛運',score:85,text:'身近な人への感謝を、言葉にして届けてみて。'},{label:'仕事運',score:91,text:'温めていたアイデアを、まずはメモに書き出してみましょう。'},{label:'金運',score:82,text:'今あるものを見直すと、新しい使い道が見つかりそう。'}],action:'気になっていたことをひとつ、10分だけ試してみましょう。',luckyColor:'シャンパンゴールド'};
 function renderDetails(){
  $('details').replaceChildren();
@@ -26,14 +28,43 @@ $('fortune-form').addEventListener('submit',async event=>{
  if(!name){$('name').setCustomValidity('お名前を入力してください。');$('name').reportValidity();return;}
  const birthDate=`${$('year').value}-${$('month').value.padStart(2,'0')}-${$('day').value.padStart(2,'0')}`;
  if(birthDate>localDate()){ $('form-status').textContent='生年月日は、今日以前の日付を選んでください。';return; }
+ if($('fortune-button').disabled)return;
  const button=$('fortune-button');button.disabled=true;button.firstElementChild.textContent='月からのメッセージを読み解いています…';$('form-status').textContent='';
+ const dialog=$('reading-dialog');$('reading-stage').textContent='生まれた日に、そっと光をあてて。';dialog.showModal();dialog.setAttribute('aria-busy','true');
+ const stages=[setTimeout(()=>{$('reading-stage').textContent='今日の流れと、あなたの想いを重ねて。';},1400),setTimeout(()=>{$('reading-stage').textContent='あなたへのメッセージを、紡いでいます。';},2900)];
  try{
- const [result]=await Promise.all([generateFortune({name,birthDate}),new Promise(resolve=>setTimeout(resolve,650))]);current=result;
+ const [result]=await Promise.all([generateFortune({name,birthDate}),new Promise(resolve=>setTimeout(resolve,4400))]);current=result;readingInput={name,birthDate};
  $('result-label').textContent='✦ あなたの鑑定結果 · サンプル';$('result-date').textContent=result.date.replaceAll('-','.');$('person').textContent=`${result.name}さんの今日の運勢`;$('score').textContent=result.score;$('result-heading').textContent=result.title;$('summary').textContent=result.summary;
  const stars=document.querySelector('.stars');const rating=Math.min(5,Math.max(1,Math.round(result.score/20)));stars.textContent='★'.repeat(rating)+'☆'.repeat(5-rating);stars.setAttribute('aria-label',`5段階中${rating}`);
- renderDetails();setDetails(true);$('form-status').textContent='鑑定結果を表示しました。';$('result').focus({preventScroll:true});$('result').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+ dialog.close();renderDetails();setDetails(true);$('result').classList.remove('revealed');void $('result').offsetWidth;$('result').classList.add('revealed');$('form-status').textContent='鑑定結果を表示しました。';$('result').focus({preventScroll:true});$('result').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
  }catch{ $('form-status').textContent='結果を表示できませんでした。もう一度お試しください。'; }
- finally{button.disabled=false;button.firstElementChild.textContent='今日の運勢を占う';}
+ finally{stages.forEach(clearTimeout);dialog.close();dialog.removeAttribute('aria-busy');button.disabled=false;button.firstElementChild.textContent='今日の運勢を占う';}
 });
+$('reading-dialog').addEventListener('cancel',event=>event.preventDefault());
 $('name').addEventListener('input',()=> $('name').setCustomValidity(''));
-$('email-form').addEventListener('submit',event=>{event.preventDefault();$('email-status').textContent='入力ありがとうございます。現在は体験版のため、登録・配信は行われません。メールアドレスは送信・保存していません。';$('email').value='';});
+let widgetId=null;
+const mailReady=Boolean(mailConfig.endpoint && mailConfig.turnstileSiteKey);
+if(mailReady){
+ $('email-note').textContent='今回の月の便りを1通お送りします。継続配信の登録はありません。';
+ $('mail-consent-row').hidden=false;
+ const script=document.createElement('script');script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';script.async=true;
+ script.onload=()=>{widgetId=window.turnstile.render('#mail-challenge',{sitekey:mailConfig.turnstileSiteKey,action:'luna-letter',theme:'dark'});};
+ script.onerror=()=>{$('email-status').textContent='送信確認を読み込めませんでした。ページを再読み込みしてください。';};
+ document.head.append(script);
+}
+$('email-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(!mailReady){$('email-status').textContent='月の便りはただいま準備中です。メールアドレスは送信・保存していません。';return;}
+ if(!readingInput){$('email-status').textContent='あなたの便りをつくるため、先に生年月日とお名前で今日の運勢を占ってください。';$('name').focus();return;}
+ if(!$('mail-consent').checked){$('email-status').textContent='お届けに必要な情報の取り扱いをご確認ください。';return;}
+ const token=widgetId!==null ? window.turnstile?.getResponse(widgetId):'';
+ if(!token){$('email-status').textContent='送信確認が終わってから、もう一度押してください。';return;}
+ const button=$('email-form').querySelector('button');if(button.disabled)return;button.disabled=true;$('email-status').textContent='あなたの月の便りを、お届けする準備をしています…';
+ try{
+ const response=await fetch(mailConfig.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...readingInput,email:$('email').value.trim(),token,consent:true}),signal:AbortSignal.timeout(30000)});
+ const result=await response.json();
+ $('email-status').textContent=result.message||'送信を確認できませんでした。もう一度お試しください。';
+ if(response.ok && result.ok){$('email').value='';$('mail-consent').checked=false;}
+ }catch{$('email-status').textContent='送信を確認できませんでした。通信状況を確認して、もう一度お試しください。';}
+ finally{button.disabled=false;if(widgetId!==null)window.turnstile?.reset(widgetId);}
+});
