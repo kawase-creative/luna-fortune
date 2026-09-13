@@ -1,4 +1,4 @@
-import {mailConfig} from './mail-config.js';
+import {mailConfig} from './mail-config.js?v=3';
 import {generateFortune,localDate} from './fortune.js';
 const $ = id => document.getElementById(id);
 const today = new Date();
@@ -43,7 +43,13 @@ $('fortune-form').addEventListener('submit',async event=>{
 $('reading-dialog').addEventListener('cancel',event=>event.preventDefault());
 $('name').addEventListener('input',()=> $('name').setCustomValidity(''));
 let widgetId=null;
+const gmailReady=Boolean(mailConfig.appsScriptEndpoint);
 const mailReady=Boolean(mailConfig.endpoint && mailConfig.turnstileSiteKey);
+if(gmailReady){
+ $('email-note').textContent='月の便りを1通お届けします。同じアドレスへの送信は1日1回です。';
+ $('mail-consent-row').hidden=false;
+ $('mail-consent-row').querySelector('span').textContent='月の便り1通のお届けに同意します。名前・生年月日・メールアドレスはGoogleで送信処理されます。鑑定はサンプルです。';
+}
 if(mailReady){
  $('email-note').textContent='今回の月の便りを1通お送りします。継続配信の登録はありません。';
  $('mail-consent-row').hidden=false;
@@ -54,9 +60,16 @@ if(mailReady){
 }
 $('email-form').addEventListener('submit',async event=>{
  event.preventDefault();
- if(!mailReady){$('email-status').textContent='月の便りはただいま準備中です。メールアドレスは送信・保存していません。';return;}
+ if(!mailReady && !gmailReady){$('email-status').textContent='月の便りはただいま準備中です。メールアドレスは送信・保存していません。';return;}
  if(!readingInput){$('email-status').textContent='あなたの便りをつくるため、先に生年月日とお名前で今日の運勢を占ってください。';$('name').focus();return;}
  if(!$('mail-consent').checked){$('email-status').textContent='お届けに必要な情報の取り扱いをご確認ください。';return;}
+ if(gmailReady){
+  const frame=$('mail-response');frame.hidden=false;
+  $('email-status').textContent='月の便りを送信しています。下の欄で送信結果をご確認ください。';
+  const post=document.createElement('form');post.method='POST';post.action=mailConfig.appsScriptEndpoint;post.target='luna-mail-response';post.hidden=true;
+  for(const [key,value] of Object.entries({...readingInput,email:$('email').value.trim(),consent:'true',website:''})){const field=document.createElement('input');field.type='hidden';field.name=key;field.value=value;post.append(field);}
+  document.body.append(post);post.submit();post.remove();return;
+ }
  const token=widgetId!==null ? window.turnstile?.getResponse(widgetId):'';
  if(!token){$('email-status').textContent='送信確認が終わってから、もう一度押してください。';return;}
  const button=$('email-form').querySelector('button');if(button.disabled)return;button.disabled=true;$('email-status').textContent='あなたの月の便りを、お届けする準備をしています…';

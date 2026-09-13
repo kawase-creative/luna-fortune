@@ -11,3 +11,4 @@
 @media(max-width:360px){.hero-brand img{width:45px;height:49px}}
 @media(prefers-reduced-motion:reduce){.lunar-orbit>img,.orbit-ring,.ritual-progress span,.revealed .result-card{animation:none}.ritual-progress span{transform:scaleX(1)}}
 .mail-consent{display:flex!important;gap:10px;align-items:flex-start;line-height:1.8;color:#bdc9d9;font-size:12px!important;margin:14px 0}.mail-consent[hidden]{display:none!important}.mail-consent input{width:17px;min-height:17px;height:17px;flex-shrink:0;margin-top:4px}.mail-consent span{flex:1;min-width:0}#mail-challenge{max-width:100%;overflow:hidden}
+#mail-response{border:1px solid #d6b77d44;border-radius:12px;width:100%;height:280px;margin-top:16px;background:#0b1b2d}#mail-response[hidden]{display:none}
