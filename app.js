@@ -1,4 +1,4 @@
-import {mailConfig} from './mail-config.js?v=3';
+import {mailConfig} from './mail-config.js?v=4';
 import {generateFortune,localDate} from './fortune.js';
 const $ = id => document.getElementById(id);
 const today = new Date();
